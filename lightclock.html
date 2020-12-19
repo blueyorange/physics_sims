@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+</style>
+</head>
+<body onload="startGame()">
+
+<script>
+var restPhoton;
+var mirrorA;
+var mirrorB;
+var mirrorAprime;
+var mirrorBprime;
+var movingPhoton;
+let photonWidth = 8;
+let mirrorWidth = 100;
+let mirrorHeight = 10;
+let L = 200;
+var ether = true;
+// speed of light in metres per nanosecond;
+let interval = 20;
+let frameRate = 1000/interval;
+var voverc = 0.10;
+var tzero = 1;
+var duration = 1;
+var c = 2 * L  / (frameRate * duration);
+var v = voverc * c;
+var timer = true;
+
+function startGame() {
+    var slider = document.getElementById("myRange");
+    var  slidertext = document.getElementById("slidertext");
+
+    slider.oninput = function() {
+        voverc = parseInt(this.value)/100;
+        v = voverc *c;
+        document.getElementById("slidertext").innerHTML = voverc;
+    }
+
+    slidertext.innerHTML = voverc;
+    restPhoton = new component(80, 30 + mirrorHeight, "red", photonWidth);
+    movingPhoton = new component(200,30+mirrorHeight,"red",photonWidth);
+    mirrorA = new component(30, 30, "black",mirrorWidth, mirrorHeight, "rectangle");
+    mirrorB = new component(30, 30+L+mirrorHeight+photonWidth, "black", mirrorWidth, mirrorHeight, "rectangle");
+    mirrorAprime = new component(150, 30, "black",mirrorWidth, mirrorHeight, "rectangle");
+    mirrorBprime = new component(150, 30+L+mirrorHeight+photonWidth, "black", mirrorWidth, mirrorHeight, "rectangle");
+    mirrorAprime.speedX = v;
+    mirrorBprime.speedX = v;
+
+    // specify speed of moving photon based on ether or special relativity
+    restPhoton.speedY = c;
+    if(ether) {
+        movingPhoton.speedY = c;
+        movingPhoton.speedX = v;
+    } else {
+        movingPhoton.speedY = c / gamma(voverc);
+        movingPhoton.speedX = v;
+    }
+    myGameArea.start();
+}
+
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = 1200;
+        this.canvas.height = 270;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.interval = setInterval(updateGameArea, interval);
+        this.frameNo = 0;
+    },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    },
+    stop : function() {
+        clearInterval(this.interval);
+    }
+}
+
+function component(x, y, color, width, height, type) {
+    this.speedX = 0;
+    this.speedY = 0;
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    if(type == "rectangle") {
+    this.width = width;
+    this.height = height;
+        this.update = function() {
+            ctx = myGameArea.context;
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    } else {
+        this.radius = width/2;
+        this.width = width;
+        this.height = width;
+       this.update = function() {
+            ctx = myGameArea.context;
+            ctx.beginPath()
+            ctx.fillStyle = color;
+            ctx.strokeStyle = color;
+            ctx.arc(this.x+this.radius,this.y+this.radius,this.radius,0,2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+    this.newPos = function() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+    }
+    this.collideWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = Math.round(this.y);
+        var mybottom = Math.round(this.y + this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = Math.round(otherobj.y);
+        var otherbottom = Math.round(otherobj.y + (otherobj.height));
+        var crash;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        } else {
+            console.log("frameNo = " + myGameArea.frameNo +", y = " + this.y + ", yspeed = " + this.speedY);
+            crash = true;
+        }
+        return crash;
+    }
+}
+
+function updateGameArea() {
+    myGameArea.clear();
+    myGameArea.frameNo +=1;
+    restPhoton.newPos();
+    movingPhoton.newPos();
+    mirrorAprime.newPos();
+    mirrorBprime.newPos();
+    restPhoton.update();
+    movingPhoton.update();
+    mirrorA.update();
+    mirrorB.update();
+    mirrorAprime.update();
+    mirrorBprime.update();
+    if(restPhoton.collideWith(mirrorB)) {
+        restPhoton.speedY *= -1;
+    }
+    if(timer) {
+        document.getElementById("tzero").innerHTML = myGameArea.frameNo*interval/1000;
+    }
+    if(restPhoton.collideWith(mirrorA)) {
+        restPhoton.speedY = 0;
+        timer = false;
+    }
+    if(movingPhoton.collideWith(mirrorBprime)) {
+        movingPhoton.speedY *=-1;
+    }
+    if(movingPhoton.collideWith(mirrorAprime)) {
+        movingPhoton.speedY = 0;
+        myGameArea.stop();
+    }
+    document.getElementById("t").innerHTML = myGameArea.frameNo*interval/1000;
+}
+
+function etherToggle() {
+    if (ether) {
+        ether = false;
+        document.getElementById("etherButton").innerHTML="INVARIANT LIGHT SPEED (SPECIAL RELATIVITY)";
+    } else {
+        ether = true;
+        this.innerHTML="ETHER MODEL";
+        document.getElementById("etherButton").innerHTML="ETHER MODEL";
+    }
+}
+
+function gamma(voverc) {
+    var gamma = Math.pow(1-Math.pow(voverc,2),-0.5);
+    document.getElementById("gamma").innerHTML = gamma;
+    return gamma;
+}
+
+function restartGame() {
+    mirrorAprime.speedX = 0;
+    mirrorBprime.speedX = 0;
+    movingPhoton.speedX = 0;
+    movingPhoton.speedY = 0;
+    timer = true;
+    myGameArea.stop();
+    startGame();
+}
+
+</script>
+<p>Rest frame t<sub>0</sub> = <span id="tzero"></span> ns</p>
+<p>Moving frame t = <span id="t"></span> ns</p>
+<p>Gamma = <span id="gamma"></span></p>
+<div class="slidecontainer">
+  <input type="range" min="1" max="99" value="1" class="slider" id="myRange">
+  <p>v/c = <span id="slidertext"></span></p>
+</div>
+<button onclick="restartGame()">GO</button>
+<button onclick="etherToggle()" id="etherButton">ETHER MODEL</button><br><br>
+
+</body>
+</html>
